@@ -3,7 +3,7 @@
 # @Author: LiSnB
 # @Date:   2014-01-10 15:37:27
 # @Last Modified by:   LiSnB
-# @Last Modified time: 2014-01-10 16:29:07
+# @Last Modified time: 2014-01-10 17:21:12
 # @Email: lisnb.h@gmail.com
 
 """
@@ -25,15 +25,16 @@ def run():
 	threadpool=[]
 	v_lock=threading.RLock()
 	u_lock=threading.RLock()
-	visit_dict={}
+	visit_list=[]
+	unvisit_list=[]
 	unvisit_queue=Queue.Queue()
 	unvisit_queue.put(r'http://www.ict.ac.cn')
-	spider=spider_thread.Spider('spider',visit_dict,unvisit_queue,v_lock,u_lock)
+	spider=spider_thread.Spider('spider',visit_list,unvisit_queue,unvisit_list,v_lock,u_lock)
 	spider.start()
 	threadpool.append(spider)
 	time.sleep(5)
 	for i in range(10):
-		sp=spider_thread.Spider('spider_%s'%i,visit_dict,unvisit_queue,v_lock,u_lock)
+		sp=spider_thread.Spider('spider_%s'%i,visit_list,unvisit_queue,unvisit_list,v_lock,u_lock)
 		sp.start()
 		threadpool.append(sp)
 	for t in threadpool:

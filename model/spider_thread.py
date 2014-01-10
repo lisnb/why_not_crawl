@@ -3,7 +3,7 @@
 # @Author: LiSnB
 # @Date:   2014-01-10 01:14:52
 # @Last Modified by:   LiSnB
-# @Last Modified time: 2014-01-10 16:28:24
+# @Last Modified time: 2014-01-10 23:02:59
 # @Email: lisnb.h@gmail.com
 
 """
@@ -17,6 +17,8 @@ import Queue
 import url_lister
 import urlparse
 import socket
+import chardet
+import re
 from util import utils
 
 import sys
@@ -26,11 +28,12 @@ import config
 
 class Spider(threading.Thread):
 	"""docstring for Spider"""
-	def __init__(self,thread_name,visit_dict,unvisit_queue,v_lock,u_lock):
+	def __init__(self,thread_name,visit_list,unvisit_queue,unvisit_list,v_lock,u_lock):
 		super(Spider, self).__init__(name=thread_name)
 		self.v_lock=v_lock
 		self.u_lock=u_lock
-		self.visit_dict=visit_dict
+		self.unvisit_list=unvisit_list
+		self.visit_list=visit_list
 		self.unvisit_queue=unvisit_queue
 
 	def run(self):
@@ -41,29 +44,40 @@ class Spider(threading.Thread):
 				print '%s, Queue size: %s, Handling %s '%(self.name,self.unvisit_queue.qsize(),current_url)
 				self.u_lock.release()
 				
-				urlopener=urllib2.urlopen(current_url,timeout=2)
-				html=urlopener.read()
-				urlopener.close()
-
 				self.v_lock.acquire()
-				self.visit_dict[current_url]=1
+				self.visit_list.append(current_url)
 				self.v_lock.release()
 
+				urlopener=urllib2.urlopen(current_url,timeout=2)
+				html=urlopener.read()
+				html=re.sub(r'<!--.*-->','',html)
+				urlopener.close()
+
+				urllister=url_lister.URLLister()
+				urllister.feed(html)
+
+				charset=urllister.charset if urllister.charset else chardet.detect(html)['encoding']
+				print 'charset: %s'%charset
+				if not ('utf' in charset and '8' in charset):
+					try:
+						html=html.decode(charset).encode('utf-8')
+					except Exception, e:
+						print 'decode error... '
 				filename= config.http_repo_path+current_url.translate(utils.filename_table)[4:]+'.html'
 				with open(filename,'w') as f:
 					f.write(html)
 
-				urllister=url_lister.URLLister()
-				urllister.feed(html)
-				print 'Contains href: %s'%len(urllister.hrefs)
-
+				
+				self.v_lock.acquire()
 				for href in urllister.hrefs:
 					whole_href=urlparse.urljoin(current_url,href)
-					self.u_lock.acquire()
-					if not self.visit_dict.get(whole_href,0):	
+					if whole_href not in self.visit_list and whole_href not in self.unvisit_list:
+						self.u_lock.acquire()	
 						self.unvisit_queue.put(whole_href)
-					self.u_lock.release()
-				print 'Done, Queue Size : %s'%self.unvisit_queue.qsize()
+						self.unvisit_list.append(whole_href)
+						self.u_lock.release()
+				self.v_lock.release()
+				# print 'Done, Queue Size : %s'%self.unvisit_queue.qsize()
 			except (urllib2.URLError,urllib2.HTTPError),e:
 				print e,1
 				continue
