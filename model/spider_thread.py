@@ -3,7 +3,7 @@
 # @Author: LiSnB
 # @Date:   2014-01-10 01:14:52
 # @Last Modified by:   LiSnB
-# @Last Modified time: 2014-01-10 23:02:59
+# @Last Modified time: 2014-01-11 15:01:15
 # @Email: lisnb.h@gmail.com
 
 """
@@ -48,7 +48,9 @@ class Spider(threading.Thread):
 				self.visit_list.append(current_url)
 				self.v_lock.release()
 
-				urlopener=urllib2.urlopen(current_url,timeout=2)
+				request = urllib2.Request(current_url)
+				request.add_header('User-Agent',config.user_agent)
+				urlopener=urllib2.urlopen(request,timeout=2)
 				html=urlopener.read()
 				html=re.sub(r'<!--.*-->','',html)
 				urlopener.close()
